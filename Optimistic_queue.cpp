@@ -11,6 +11,7 @@ using namespace std;
 class pointer_t;
 class node_t;
 class queue_t;
+int n,k;
 
 void fixList(queue_t *q,pointer_t tail,pointer_t head);
 
@@ -49,11 +50,6 @@ class queue_t{
     public:
     atomic<pointer_t> tail;
     atomic<pointer_t> head;
-    
-    // queue_t() noexcept
-    // {
-
-    // }
 
     queue_t()
     {
@@ -65,31 +61,24 @@ class queue_t{
         temp.ptr=nd;
         temp.tag=0;
         (tail).store(temp);
-       // (q->tail).store().tag = 0;
         (head).store(temp);
-       // (q->head).store().tag = 0;
     }
 
-    void enqueue(queue_t* q, int val)
+    void enqueue(int val)
     {
         pointer_t check_tail;
         node_t* nd = new node_t();
         nd->value = val;
         while(1)
         {
-            check_tail = (q->tail).load();
+            check_tail = (tail).load();
             nd->next.ptr = check_tail.ptr;
             nd->next.tag = check_tail.tag+1;
             pointer_t temp;
             temp.ptr = nd;
             temp.tag = check_tail.tag+1;
-            if((q->tail).compare_exchange_strong(check_tail, temp)) //
+            if((tail).compare_exchange_strong(check_tail, temp)) //
             {
-                // pointer_t temp1;
-                // temp1.ptr=nd;
-                // temp1.tag=check_tail.tag+1;
-               // (q->tail.load()).ptr->prev.ptr = nd;
-                //(q->tail.load()).ptr->prev.tag = check_tail.tag+1;
                 (check_tail.ptr)->prev.ptr = nd;
                 (check_tail.ptr)->prev.tag = check_tail.tag;
                 break;
@@ -97,39 +86,38 @@ class queue_t{
         }
     }
 
-    int dequeue(queue_t* q, int i)
+    int dequeue()
     {
         pointer_t check_tail,check_head,firstNodePrev;
         int val;
         while(1)
         {
-            cout<<i<<" ll\n"<<endl;
-            check_head = (q->head).load();
-            check_tail = (q->tail).load();
+            check_head = (head).load();
+            check_tail = (tail).load();
             firstNodePrev = (check_head.ptr)->prev;
-            if(comparePointer(check_head, (q->head).load()))
+            if(comparePointer(check_head, (head).load()))
             {
                 if(!comparePointer(check_tail,check_head))
                 {
                     if(firstNodePrev.tag!=check_head.tag)
                     {
-                        fixList(q,check_tail,check_head);
+                        fixList(this,check_tail,check_head);
                         continue;
                     }
                     val = (firstNodePrev.ptr)->value;
                     pointer_t temp;
                     temp.ptr = firstNodePrev.ptr;
                     temp.tag = check_head.tag+1;
-                    if((q->head).compare_exchange_strong(check_head, temp)) //
+                    if((head).compare_exchange_strong(check_head, temp)) //
                     {
                         delete check_head.ptr ;//????
                         return val;
                     }
                 }
-            }
-            else
-            {
-                return INT_MIN;
+                else
+                {
+                    return INT_MIN;
+                }
             }
         }
     }
@@ -152,38 +140,121 @@ void fixList(queue_t *q,pointer_t tail,pointer_t head)
 }
 
 queue_t opt_q;
-void test(int i){
-    if(i<7){
-        opt_q.enqueue(&opt_q, i+1);
-        auto end_time = chrono::system_clock::to_time_t(chrono::system_clock::now());
-        string t = ctime(&end_time);
-        t = t.substr(10,9);
-        cout<<"enqed "<<i+1<<" at "<<t<<endl;
-    }
-    else{
-        int ret = opt_q.dequeue(&opt_q,i);
-        auto end_time = chrono::system_clock::to_time_t(chrono::system_clock::now());
-        string t = ctime(&end_time);
-        t = t.substr(10,9);
-        cout<<"deqed "<<i+1<<" at "<<t<<endl;
-    }
+
+void test_random(int id){
+	for(int i=0;i<k;i++){
+		//srand(time(0));
+		if(rand()&1){
+            int enq = rand()%100;
+            opt_q.enqueue(enq);
+            printf("thread %d enqueued %d\n",id+1,enq );
+            /*****************************************************
+             comment above line and uncomment below lines
+             to get time stamps. This could give outofrange error
+             which we could not rectify, but it does not have anything
+             to do with the working of the queue
+            ******************************************************/
+            // time_t end_time = chrono::system_clock::to_time_t(chrono::system_clock::now());
+		    // string t = ctime(&end_time);
+		    // t = t.substr(10,9);
+            // printf("thread %d enqueued %d at %s\n",id+1,enq,t.c_str() );
+		}
+		else{
+			int ret = opt_q.dequeue();
+            printf("thread %d dequeued %d\n", id+1, ret);
+            /*****************************************************
+             comment above line and uncomment below lines
+             to get time stamps. This could give outofrange error
+             which we could not rectify, but it does not have anything
+             to do with the working of the queue
+            ******************************************************/
+            // time_t end_time = chrono::system_clock::to_time_t(chrono::system_clock::now());
+            // string t = ctime(&end_time);
+            // t = t.substr(10,9);
+            // printf("thread %d dequeued %d at %s\n", id+1, ret, t.c_str());
+		}
+	}
 }
 
+void test_alternate(int id){
+	for(int i=0;i<k;i++){
+		if(i&1){
+            int enq = rand()%100;
+			opt_q.enqueue(enq);
+            printf("thread %d enqueued %d\n",id+1,enq );
+            /*****************************************************
+             comment above line and uncomment below lines
+             to get time stamps. This could give outofrange error
+             which we could not rectify, but it does not have anything
+             to do with the working of the queue
+            ******************************************************/
+            // time_t end_time = chrono::system_clock::to_time_t(chrono::system_clock::now());
+		    // string t = ctime(&end_time);
+		    // t = t.substr(10,9);
+            // printf("thread %d enqueued %d at %s\n",id+1,enq,t.c_str() );
+
+		}
+		else{
+			int ret = opt_q.dequeue();
+            printf("thread %d dequeued %d\n", id+1, ret);
+            /*****************************************************
+             comment above line and uncomment below lines
+             to get time stamps. This could give outofrange error
+             which we could not rectify, but it does not have anything
+             to do with the working of the queue
+            ******************************************************/
+            // time_t end_time = chrono::system_clock::to_time_t(chrono::system_clock::now());
+            // string t = ctime(&end_time);
+            // t = t.substr(10,9);
+            // printf("thread %d dequeued %d at %s\n", id+1, ret, t.c_str());
+		}
+	}
+}
 
 
 int main(){
 
-    // queue_t q = new 
-    int n = 10;
+    cout<<"Enter number of threads (n) : "<<endl;
+    cin>>n;
+    cout<<"Enter number of operations for each thread (k): "<<endl;
+    cin>>k;
     thread test_threads[n];
+    auto EnterTime = chrono::steady_clock::now();
     for(int i=0;i<n;i++)
     {
-        test_threads[i] = thread(test,i);    
+        test_threads[i] = thread(test_random,i);    
     }
-    
+	auto ExitTime = chrono::steady_clock::now();
+	auto total_time = chrono::duration_cast<chrono::nanoseconds>(ExitTime-EnterTime);
+    auto time =(total_time.count());
+
     for(int i=0;i<n;i++)
     {
         test_threads[i].join();
     }
+
+
+    /*********************************************************
+    comment lines 222-234 and uncomment the below lines 242-253
+    to test the average time per operation of test_random
+    **********************************************************/
+    
+    // auto EnterTime = chrono::steady_clock::now();
+    // for(int i=0;i<n;i++)
+    // {
+    //     test_threads[i] = thread(test_alternate,i);    
+    // }
+	// auto ExitTime = chrono::steady_clock::now();
+	// auto total_time = chrono::duration_cast<chrono::nanoseconds>(ExitTime-EnterTime);
+    // auto time =(total_time.count());
+    // for(int i=0;i<n;i++)
+    // {
+    //     test_threads[i].join();
+    // }
+    
+    cout<<"Total time taken : "<<time/1000<<" microseconds"<<endl;
+    time/=(n*k);
+    cout<<"Average time taken for each operation : "<<time<<" nanoseconds"<<endl;
+
     return 0;
 }
